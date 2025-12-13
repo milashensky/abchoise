@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+<style>
+    .results-nav { margin-bottom: 20px; padding: 10px; background: #f5f5f5; border-radius: 4px; }
+    .results-nav a { margin-right: 15px; color: #0066cc; text-decoration: none; }
+    .results-nav a:hover { text-decoration: underline; }
+    .filter { margin-bottom: 20px; padding: 10px; background: #f9f9f9; border-radius: 4px; }
+    .results-table { border-collapse: collapse; width: 100%; }
+    .results-table th, .results-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    .results-table th { background: #f0f0f0; font-weight: bold; }
+    .results-table tr:hover { background: #f5f5f5; }
+    .results-table tr:nth-child(even) { background: #fafafa; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="results-nav">
+    <a href="{% url 'admin:results_step1' %}">Step 1 Popularity</a>
+    <a href="{% url 'admin:results_step2_streak' %}">Step 2 Longest Streak</a>
+    <a href="{% url 'admin:results_step2_final' %}">Step 2 Final Winners</a>
+</div>
+
+<div class="filter">
+    <form method="get">
+        <label>Filter by IP: </label>
+        <select name="ip" onchange="this.form.submit()">
+            <option value="">All IPs</option>
+            {% for ip in ips %}
+            <option value="{{ ip }}" {% if ip == selected_ip %}selected{% endif %}>{{ ip }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+{% block results_content %}{% endblock %}
+{% endblock %}

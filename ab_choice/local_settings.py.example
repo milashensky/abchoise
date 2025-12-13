@@ -1,0 +1,14 @@
+# Copy this file to local_settings.py and configure your local settings
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'abselect',
+        'USER': 'abselect',
+        'PASSWORD': 'abselect',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+
+OPENAI_API_KEY = 'your-api-key-here'

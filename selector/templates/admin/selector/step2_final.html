@@ -1,0 +1,27 @@
+{% extends "admin/selector/base_results.html" %}
+
+{% block results_content %}
+<p style="margin-bottom: 20px; color: #666;">
+    <strong>Step 2 - Final Winners:</strong> The last option standing in each user's tournament. Ranked by win count across sessions.
+</p>
+<table class="results-table">
+    <thead>
+        <tr>
+            <th>Rank</th>
+            <th>Option</th>
+            <th>Final Win Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in results %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ item.option.text }}</td>
+            <td>{{ item.count }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3">No data available</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

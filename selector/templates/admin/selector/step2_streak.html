@@ -1,0 +1,29 @@
+{% extends "admin/selector/base_results.html" %}
+
+{% block results_content %}
+<p style="margin-bottom: 20px; color: #666;">
+    <strong>Step 2 - Selection:</strong> Users pick winners from Step 1 options in a tournament. Streak shows consecutive wins.
+</p>
+<table class="results-table">
+    <thead>
+        <tr>
+            <th>Rank</th>
+            <th>Option</th>
+            <th>Longest Streak</th>
+            <th>Sessions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in results %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ item.option.text }}</td>
+            <td>{{ item.max_streak }}</td>
+            <td>{{ item.sessions }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4">No data available</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
