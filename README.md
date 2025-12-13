@@ -10,18 +10,12 @@ This tool presents users with pairs of options and iteratively finds the most pr
 
 2. **Step 2 (Selection)**: Users select from options that were chosen at least once in Step 1. All eligible options are compared against each other. Results are tracked by longest streak and final winner.
 
-## Requirements
-
-- Python 3.10+
-- PostgreSQL
-- OpenAI API key
-
 ## Setup
 
 ### 1. Create and activate virtual environment
 
 ```bash
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # Linux/Mac
 # or
 venv\Scripts\activate  # Windows
@@ -30,7 +24,7 @@ venv\Scripts\activate  # Windows
 ### 2. Install dependencies
 
 ```bash
-pip install django psycopg2-binary openai
+pip install -Ur requirements
 ```
 
 ### 3. Create PostgreSQL database
@@ -120,9 +114,9 @@ Access the admin panel at `http://localhost:8000/admin/`
 ## Admin Results
 
 Access results at:
-- `/admin/results/step1/` - Step 1 popularity (selection count)
-- `/admin/results/step2-streak/` - Step 2 longest winning streaks
-- `/admin/results/step2-final/` - Step 2 final winners (last comparison winner)
+- `/admin/selector/option/results/step1/` - Step 1 popularity (selection count)
+- `/admin/selector/option/results/step2-streak/` - Step 2 longest winning streaks
+- `/admin/selector/option/results/step2-final/` - Step 2 final winners (last comparison winner)
 
 All results pages support IP filtering to exclude anomalous users.
 
@@ -143,37 +137,6 @@ class MyCustomAdapter(LLMAdapter):
 
 ```bash
 python manage.py test
-```
-
-All 43 tests pass. LLM calls are mocked in tests.
-
-## Project Structure
-
-```
-ab_choice/
-├── ab_choice/           # Django project settings
-│   ├── settings.py
-│   ├── local_settings.py.example
-│   └── urls.py
-├── selector/            # Main app
-│   ├── models.py        # AdminConfig, Option, Choice, UserSession
-│   ├── llm.py           # LLMAdapter, OpenAIAdapter
-│   ├── services.py      # Step1Service, Step2Service
-│   ├── views.py         # All views
-│   ├── admin.py         # Django admin config
-│   ├── urls.py          # URL routing
-│   └── templates/
-│       └── selector/
-│           ├── selection.html
-│           ├── disabled.html
-│           ├── complete.html
-│           └── admin/
-│               ├── base_results.html
-│               ├── step1_popularity.html
-│               ├── step2_streak.html
-│               └── step2_final.html
-├── manage.py
-└── README.md
 ```
 
 ## License
