@@ -117,3 +117,20 @@ def submit_manual_view(request):
         service = Step1Service(llm_adapter=get_llm_adapter())
         service.submit_manual_option(session_key, text)
     return redirect('main')
+
+
+def neither_view(request):
+    if request.method != 'POST':
+        return redirect('main')
+    config = AdminConfig.objects.first()
+    if not config or config.current_step != 1:
+        return redirect('main')
+    if not request.session.session_key:
+        request.session.create()
+    session_key = request.session.session_key
+    option_a_id = int(request.POST.get('option_a'))
+    option_b_id = int(request.POST.get('option_b'))
+    ip_address = _get_client_ip(request)
+    service = Step1Service(llm_adapter=get_llm_adapter())
+    service.record_neither(session_key, option_a_id, option_b_id, ip_address)
+    return redirect('main')

@@ -8,7 +8,7 @@ class LLMError(Exception):
 
 class LLMAdapter(ABC):
     @abstractmethod
-    def generate_options(self, prompt: str, history: list) -> tuple[str, str]:
+    def generate_options(self, prompt: str, history: list, rejected: list = None) -> tuple[str, str]:
         pass
 
 
@@ -23,11 +23,14 @@ When history is provided, use an exploitation/exploration balance:
 - Option 2 should EXPLORE: try a different area of the criteria space
 Always respond with exactly 2 options, one per line, without numbering or prefixes."""
 
-    def generate_options(self, prompt: str, history: list) -> tuple[str, str]:
+    def generate_options(self, prompt: str, history: list, rejected: list = None) -> tuple[str, str]:
         history_text = ""
         if history:
             history_text = f"\n\nPreviously selected options (use as positive examples): {', '.join(history)}"
-        user_content = f"{prompt}{history_text}\n\nGenerate exactly 2 options, one per line."
+        rejected_text = ""
+        if rejected:
+            rejected_text = f"\n\nDeprioritize these options (user rejected both): {', '.join(rejected)}"
+        user_content = f"{prompt}{history_text}{rejected_text}\n\nGenerate exactly 2 options, one per line."
         try:
             response = self.client.chat.completions.create(
                 model=self.model,

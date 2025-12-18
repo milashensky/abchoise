@@ -202,6 +202,27 @@ class OpenAIAdapterTest(TestCase):
 
 
 class PromptConstructionTest(TestCase):
+    def test_includes_rejected_options_with_deprioritize_instruction(self):
+        adapter = OpenAIAdapter(api_key="test-key")
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content="Opt1\nOpt2"))]
+        with patch.object(adapter, 'client') as mock_client:
+            mock_client.chat.completions.create.return_value = mock_response
+            adapter.generate_options(
+                prompt="Generate names",
+                history=["Alex"],
+                rejected=["BadOption1", "BadOption2"]
+            )
+            call_args = mock_client.chat.completions.create.call_args
+            messages = call_args.kwargs['messages']
+            user_message = next(m for m in messages if m['role'] == 'user')
+            with self.subTest(check="deprioritize_keyword"):
+                self.assertIn("deprioritize", user_message['content'].lower())
+            with self.subTest(check="rejected_option_1"):
+                self.assertIn("BadOption1", user_message['content'])
+            with self.subTest(check="rejected_option_2"):
+                self.assertIn("BadOption2", user_message['content'])
+
     def test_system_prompt_instructs_exploitation_exploration(self):
         adapter = OpenAIAdapter(api_key="test-key")
         mock_response = MagicMock()
@@ -346,6 +367,72 @@ class Step1ServiceTest(TestCase):
         step2_service = Step2Service()
         eligible = step2_service.get_eligible_options()
         self.assertIn(option, eligible)
+
+    def test_record_neither_creates_two_choices_with_null_selected(self):
+        mock_adapter = MagicMock()
+        service = Step1Service(llm_adapter=mock_adapter)
+        opt_a = Option.objects.create(text="Alex", session_id="sess1")
+        opt_b = Option.objects.create(text="Pablo", session_id="sess1")
+        service.record_neither(
+            session_key="sess1",
+            option_a_id=opt_a.id,
+            option_b_id=opt_b.id,
+            ip_address="192.168.1.1"
+        )
+        choices = Choice.objects.filter(session_id="sess1", selected__isnull=True)
+        with self.subTest(check="count"):
+            self.assertEqual(choices.count(), 2)
+        rejected_ids = set(choices.values_list('rejected_id', flat=True))
+        with self.subTest(check="rejected_ids"):
+            self.assertEqual(rejected_ids, {opt_a.id, opt_b.id})
+
+    def test_record_neither_increments_round_counter(self):
+        mock_adapter = MagicMock()
+        service = Step1Service(llm_adapter=mock_adapter)
+        opt_a = Option.objects.create(text="Alex", session_id="sess1")
+        opt_b = Option.objects.create(text="Pablo", session_id="sess1")
+        service.record_neither(
+            session_key="sess1",
+            option_a_id=opt_a.id,
+            option_b_id=opt_b.id,
+            ip_address="192.168.1.1"
+        )
+        session = UserSession.objects.get(session_key="sess1")
+        self.assertEqual(session.current_round, 1)
+
+    def test_get_pair_passes_rejected_history_to_llm(self):
+        mock_adapter = MagicMock()
+        mock_adapter.generate_options.return_value = ("NewOpt1", "NewOpt2")
+        service = Step1Service(llm_adapter=mock_adapter)
+        opt_bad1 = Option.objects.create(text="BadOption1", session_id="sess1")
+        opt_bad2 = Option.objects.create(text="BadOption2", session_id="sess1")
+        Choice.objects.create(selected=None, rejected=opt_bad1, step=1, session_id="sess1")
+        Choice.objects.create(selected=None, rejected=opt_bad2, step=1, session_id="sess1")
+        service.get_current_pair(session_key="sess1")
+        call_args = mock_adapter.generate_options.call_args
+        rejected = call_args.kwargs.get('rejected') or call_args.args[2]
+        with self.subTest(check="bad1"):
+            self.assertIn("BadOption1", rejected)
+        with self.subTest(check="bad2"):
+            self.assertIn("BadOption2", rejected)
+
+    def test_rejected_options_accumulate_across_multiple_neither_clicks(self):
+        mock_adapter = MagicMock()
+        mock_adapter.generate_options.return_value = ("NewOpt", "NewOpt2")
+        service = Step1Service(llm_adapter=mock_adapter)
+        opt_a = Option.objects.create(text="Rejected1", session_id="sess1")
+        opt_b = Option.objects.create(text="Rejected2", session_id="sess1")
+        service.record_neither("sess1", opt_a.id, opt_b.id, "127.0.0.1")
+        opt_c = Option.objects.create(text="Rejected3", session_id="sess1")
+        opt_d = Option.objects.create(text="Rejected4", session_id="sess1")
+        service.record_neither("sess1", opt_c.id, opt_d.id, "127.0.0.1")
+        service.get_current_pair(session_key="sess1")
+        call_args = mock_adapter.generate_options.call_args
+        rejected = call_args.kwargs.get('rejected') or call_args.args[2]
+        expected = ["Rejected1", "Rejected2", "Rejected3", "Rejected4"]
+        for item in expected:
+            with self.subTest(rejected_item=item):
+                self.assertIn(item, rejected)
 
 
 class Step2ServiceTest(TestCase):
@@ -572,6 +659,42 @@ class DisabledViewRedirectTest(TestCase):
         AdminConfig.objects.create(prompt="test", current_step=0)
         response = self.client.get('/disabled/')
         self.assertEqual(response.status_code, 200)
+
+
+class NeitherViewTest(TestCase):
+    def setUp(self):
+        AdminConfig.objects.create(prompt="test", current_step=1, rounds_count=5)
+
+    def test_neither_view_records_rejection_and_redirects(self):
+        opt_a = Option.objects.create(text="Alex")
+        opt_b = Option.objects.create(text="Pablo")
+        response = self.client.post('/neither/', {
+            'option_a': opt_a.id,
+            'option_b': opt_b.id
+        })
+        with self.subTest(check="redirect"):
+            self.assertRedirects(response, '/')
+        choices = Choice.objects.filter(selected__isnull=True)
+        with self.subTest(check="choices_created"):
+            self.assertEqual(choices.count(), 2)
+
+    def test_neither_button_shown_in_step1(self):
+        mock_adapter = MagicMock()
+        mock_adapter.generate_options.return_value = ("Alex", "Pablo")
+        with patch('selector.views.get_llm_adapter', return_value=mock_adapter):
+            response = self.client.get('/')
+            self.assertContains(response, '/neither/')
+
+    def test_neither_button_not_shown_in_step2(self):
+        config = AdminConfig.objects.first()
+        config.current_step = 2
+        config.save()
+        opt_a = Option.objects.create(text="Alex")
+        opt_b = Option.objects.create(text="Pablo")
+        Choice.objects.create(selected=opt_a, rejected=opt_b, step=1)
+        Choice.objects.create(selected=opt_b, rejected=opt_a, step=1)
+        response = self.client.get('/')
+        self.assertNotContains(response, '/neither/')
 
 
 class CompleteViewRedirectTest(TestCase):

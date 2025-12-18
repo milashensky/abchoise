@@ -7,4 +7,5 @@ urlpatterns = [
     path('complete/', views.complete_view, name='complete'),
     path('select/', views.select_view, name='select'),
     path('submit-manual/', views.submit_manual_view, name='submit_manual'),
+    path('neither/', views.neither_view, name='neither'),
 ]

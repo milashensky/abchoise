@@ -6,7 +6,7 @@ A web tool for iterative option selection using LLM-generated options and user v
 
 This tool presents users with pairs of options and iteratively finds the most preferred option through a two-step process:
 
-1. **Step 1 (Generation)**: Users are shown LLM-generated options based on configured criteria. Selected options inform future generations using an exploitation/exploration balance. Users can also submit their own options.
+1. **Step 1 (Generation)**: Users are shown LLM-generated options based on configured criteria. Selected options inform future generations using an exploitation/exploration balance. Users can also submit their own options or click "Neither" to reject both and get new options (rejected options are deprioritized in future generations).
 
 2. **Step 2 (Selection)**: Users select from options that were chosen at least once in Step 1. All eligible options are compared against each other. Results are tracked by longest streak and final winner.
 
@@ -106,8 +106,8 @@ Access the admin panel at `http://localhost:8000/admin/`
 
 ## User Interface
 
-- **Main page** (`/`): Shows two options as full-height buttons (50/50 split)
-- **Step 1**: Includes manual input field at bottom for user submissions
+- **Main page** (`/`): Shows two options as large buttons (50/50 split)
+- **Step 1**: Includes "Neither" button below options and manual input field for user submissions
 - **Disabled** (`/disabled/`): Shown when `current_step = 0`
 - **Complete** (`/complete/`): Shown when user finishes all rounds
 
@@ -128,8 +128,9 @@ The tool uses an adapter pattern for LLM integration. Currently implements OpenA
 from selector.llm import LLMAdapter
 
 class MyCustomAdapter(LLMAdapter):
-    def generate_options(self, prompt: str, history: list) -> tuple[str, str]:
-        # Your implementation
+    def generate_options(self, prompt: str, history: list, rejected: list = None) -> tuple[str, str]:
+        # history: previously selected options (use as positive examples)
+        # rejected: options from "neither" clicks (deprioritize these)
         return option_a, option_b
 ```
 

@@ -41,7 +41,7 @@ class Choice(models.Model):
         (POSITION_LEFT, 'Left'),
         (POSITION_RIGHT, 'Right'),
     ]
-    selected = models.ForeignKey(Option, on_delete=models.CASCADE, related_name='selected_choices')
+    selected = models.ForeignKey(Option, on_delete=models.CASCADE, related_name='selected_choices', null=True, blank=True)
     rejected = models.ForeignKey(Option, on_delete=models.CASCADE, related_name='rejected_choices', null=True, blank=True)
     step = models.IntegerField(choices=STEP_CHOICES, default=1)
     selected_position = models.IntegerField(choices=POSITION_CHOICES, null=True, blank=True)

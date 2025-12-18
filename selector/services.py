@@ -12,12 +12,17 @@ class Step1Service:
         if session.current_round >= config.rounds_count:
             return None
         history = list(
-            Choice.objects.filter(session_id=session_key, step=1)
+            Choice.objects.filter(session_id=session_key, step=1, selected__isnull=False)
             .values_list('selected__text', flat=True)
+        )
+        rejected = list(
+            Choice.objects.filter(session_id=session_key, step=1, selected__isnull=True)
+            .values_list('rejected__text', flat=True)
         )
         opt_a_text, opt_b_text = self.llm_adapter.generate_options(
             prompt=config.prompt,
-            history=history
+            history=history,
+            rejected=rejected
         )
         opt_a = Option.objects.create(text=opt_a_text, session_id=session_key)
         opt_b = Option.objects.create(text=opt_b_text, session_id=session_key)
@@ -52,6 +57,29 @@ class Step1Service:
             session_id=session_key
         )
         return option
+
+    def record_neither(self, session_key: str, option_a_id: int, option_b_id: int, ip_address: str):
+        config = AdminConfig.objects.first()
+        session, _ = UserSession.objects.get_or_create(session_key=session_key)
+        Choice.objects.create(
+            selected=None,
+            rejected_id=option_a_id,
+            step=1,
+            session_id=session_key,
+            ip_address=ip_address
+        )
+        Choice.objects.create(
+            selected=None,
+            rejected_id=option_b_id,
+            step=1,
+            session_id=session_key,
+            ip_address=ip_address
+        )
+        session.current_round += 1
+        if session.current_round >= config.rounds_count:
+            session.is_completed = True
+            session.step_completed = 1
+        session.save()
 
 
 class Step2Service:
