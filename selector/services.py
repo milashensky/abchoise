@@ -6,6 +6,14 @@ class Step1Service:
     def __init__(self, llm_adapter: LLMAdapter):
         self.llm_adapter = llm_adapter
 
+    def _get_or_create_option(self, text: str, source: str = 'llm_generated', session_id: str = '') -> Option:
+        normalized = text.strip().upper()
+        option, _ = Option.objects.get_or_create(
+            text=normalized,
+            defaults={'source': source, 'session_id': session_id}
+        )
+        return option
+
     def get_current_pair(self, session_key: str) -> tuple[Option, Option] | None:
         config = AdminConfig.objects.first()
         session, _ = UserSession.objects.get_or_create(session_key=session_key)
@@ -24,8 +32,8 @@ class Step1Service:
             history=history,
             rejected=rejected
         )
-        opt_a = Option.objects.create(text=opt_a_text, session_id=session_key)
-        opt_b = Option.objects.create(text=opt_b_text, session_id=session_key)
+        opt_a = self._get_or_create_option(opt_a_text, session_id=session_key)
+        opt_b = self._get_or_create_option(opt_b_text, session_id=session_key)
         return opt_a, opt_b
 
     def record_selection(self, session_key: str, selected_id: int, rejected_id: int, ip_address: str):
@@ -45,11 +53,7 @@ class Step1Service:
         session.save()
 
     def submit_manual_option(self, session_key: str, text: str) -> Option:
-        option = Option.objects.create(
-            text=text,
-            source='user_submitted',
-            session_id=session_key
-        )
+        option = self._get_or_create_option(text, source='user_submitted', session_id=session_key)
         Choice.objects.create(
             selected=option,
             rejected=None,

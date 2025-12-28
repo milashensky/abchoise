@@ -247,15 +247,52 @@ class Step1ServiceTest(TestCase):
             rounds_count=5
         )
 
+    def test_llm_generated_option_normalizes_text(self):
+        mock_adapter = MagicMock()
+        mock_adapter.generate_options.return_value = ('  alex  ', '  pablo  ')
+        service = Step1Service(llm_adapter=mock_adapter)
+        opt_a, opt_b = service.get_current_pair(session_key='sess1')
+        with self.subTest('should normalize option a'):
+            self.assertEqual(opt_a.text, 'ALEX')
+        with self.subTest('should normalize option b'):
+            self.assertEqual(opt_b.text, 'PABLO')
+
+    def test_llm_generated_option_reuses_existing_option(self):
+        existing = Option.objects.create(text='ALEX')
+        mock_adapter = MagicMock()
+        mock_adapter.generate_options.return_value = ('  alex  ', 'Pablo')
+        service = Step1Service(llm_adapter=mock_adapter)
+        opt_a, opt_b = service.get_current_pair(session_key='sess1')
+        with self.subTest('should reuse existing option'):
+            self.assertEqual(opt_a.id, existing.id)
+        with self.subTest('should not create duplicate'):
+            self.assertEqual(Option.objects.filter(text='ALEX').count(), 1)
+
+    def test_manual_option_normalizes_input(self):
+        mock_adapter = MagicMock()
+        service = Step1Service(llm_adapter=mock_adapter)
+        option = service.submit_manual_option(session_key='sess1', text='  my option  ')
+        self.assertEqual(option.text, 'MY OPTION')
+
+    def test_manual_option_reuses_existing_option(self):
+        existing = Option.objects.create(text='MY OPTION')
+        mock_adapter = MagicMock()
+        service = Step1Service(llm_adapter=mock_adapter)
+        option = service.submit_manual_option(session_key='sess1', text='  my option  ')
+        with self.subTest('should reuse existing option'):
+            self.assertEqual(option.id, existing.id)
+        with self.subTest('should not create duplicate'):
+            self.assertEqual(Option.objects.filter(text='MY OPTION').count(), 1)
+
     def test_get_pair_for_new_session(self):
         mock_adapter = MagicMock()
         mock_adapter.generate_options.return_value = ("Alex", "Pablo")
         service = Step1Service(llm_adapter=mock_adapter)
         opt_a, opt_b = service.get_current_pair(session_key="new-session")
         with self.subTest(option="a"):
-            self.assertEqual(opt_a.text, "Alex")
+            self.assertEqual(opt_a.text, "ALEX")
         with self.subTest(option="b"):
-            self.assertEqual(opt_b.text, "Pablo")
+            self.assertEqual(opt_b.text, "PABLO")
 
     def test_get_pair_uses_history_after_selection(self):
         mock_adapter = MagicMock()
@@ -335,7 +372,7 @@ class Step1ServiceTest(TestCase):
         service = Step1Service(llm_adapter=mock_adapter)
         option = service.submit_manual_option(session_key="sess1", text="MyCustomName")
         assertions = [
-            ("text", option.text, "MyCustomName"),
+            ("text", option.text, "MYCUSTOMNAME"),
             ("source", option.source, "user_submitted"),
             ("session_id", option.session_id, "sess1"),
         ]
@@ -358,7 +395,7 @@ class Step1ServiceTest(TestCase):
         service.get_current_pair(session_key="sess1")
         call_args = mock_adapter.generate_options.call_args
         history = call_args.kwargs.get('history') or call_args.args[1]
-        self.assertIn("MyCustomName", history)
+        self.assertIn("MYCUSTOMNAME", history)
 
     def test_submit_manual_option_eligible_for_step2(self):
         mock_adapter = MagicMock()
