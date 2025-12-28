@@ -53,6 +53,7 @@ class OptionAdmin(admin.ModelAdmin):
 
     def selection_count(self, obj):
         return obj.sel_count
+
     selection_count.admin_order_field = 'sel_count'
     selection_count.short_description = 'Times Selected'
 
